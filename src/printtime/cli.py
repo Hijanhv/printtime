@@ -315,9 +315,54 @@ def data_download(
 
 # Phase 3 ---------------------------------------------------------------------
 @panel_app.command("build")
-def panel_build() -> None:
-    """Align book and trade data onto event-time grids and compute baselines."""
-    not_built(3, "panel build")
+def panel_build(
+    synthetic: Annotated[
+        int,
+        typer.Option("--synthetic", help="Build a synthetic study with N events per type instead"),
+    ] = 0,
+    controls: Annotated[int, typer.Option(help="Control days per clock time (synthetic only)")] = 8,
+) -> None:
+    """Align book and trade data onto event-time grids, compute baselines, validate releases."""
+    import polars as pl
+
+    from printtime.panel.pipeline import run_panel_build, stages_for_study, synthetic_settings
+    from printtime.panel.providers import DatabentoProvider, SyntheticProvider, stages_from
+
+    c = cfg()
+    if synthetic:
+        from printtime.synthetic.generator import synthetic_study
+
+        c = synthetic_settings(c)
+        study = synthetic_study(c, synthetic, controls)
+        stages = stages_for_study(c, study)
+        c.paths.calendar.mkdir(parents=True, exist_ok=True)
+        study.surprises.write_parquet(c.paths.calendar / "synthetic_surprises.parquet")
+        provider: SyntheticProvider | DatabentoProvider = SyntheticProvider(c, study.scenarios)
+        instruments = list(c.synthetic.instruments)
+        typer.echo(
+            f"SYNTHETIC study: {len(stages)} stages, outputs under {c.paths.processed.parent}"
+        )
+    else:
+        from printtime.calendar.events import load_calendar
+
+        calendar = load_calendar(c)
+        ctrl_path = c.paths.calendar / "control_days.csv"
+        ctrl = pl.read_csv(ctrl_path, try_parse_dates=True) if ctrl_path.exists() else None
+        stages = stages_from(calendar, ctrl, c.tier(1))
+        provider = DatabentoProvider(c, stages)
+        instruments = list(c.instruments)
+    result = run_panel_build(c, stages, provider, instruments)
+    typer.echo(f"built panels for {result.stages_built} of {len(stages)} stages")
+    if result.validation.height:
+        bad = result.validation.filter(~pl.col("confirmed"))
+        typer.echo(
+            f"release validation: {result.validation.height - bad.height} confirmed, "
+            f"{bad.height} not"
+        )
+        for r in bad.iter_rows(named=True):
+            typer.echo(f"  CHECK BY HAND: {r['event_id']} (best spike ratio {r['best_ratio']})")
+    for p in result.sanity_plots:
+        typer.echo(f"sanity plot: {p}")
 
 
 # Phases 4-7 ------------------------------------------------------------------
