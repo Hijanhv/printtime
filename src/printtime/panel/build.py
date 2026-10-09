@@ -187,18 +187,46 @@ def baselines(coarse: pl.DataFrame, window_s: tuple[int, int]) -> pl.DataFrame:
     )
 
 
+MOVES_WINDOW_S = (-60, 120)
+
+
+def mid_changes(
+    frame: pl.DataFrame, t0_ns: int, window_s: tuple[int, int] = MOVES_WINDOW_S
+) -> pl.DataFrame:
+    """Every mid-price change near the release, at its exact exchange timestamp.
+
+    The fine grid is 100 ms; first-mover timing needs millisecond precision, so
+    it is measured from these exact times instead. offset_ns is relative to t0,
+    mid_move to the last mid strictly before t0.
+    """
+    ts = frame["ts_event"].to_numpy()
+    b = frame["bid_px_0"].to_numpy()
+    a = frame["ask_px_0"].to_numpy()
+    mid = np.where((b != NO_PRICE) & (a != NO_PRICE), (b + a) / 2.0, np.nan)
+    pre = last_index(ts, np.array([t0_ns - 1], dtype=np.int64))[0]
+    pre_mid = float(mid[pre]) if pre >= 0 else np.nan
+    lo, hi = t0_ns + window_s[0] * NS, t0_ns + window_s[1] * NS
+    keep = (ts >= lo) & (ts <= hi)
+    t, m = ts[keep], mid[keep]
+    changed = np.concatenate([[True], np.diff(m) != 0]) & ~np.isnan(m)
+    return pl.DataFrame(
+        {"offset_ns": (t[changed] - t0_ns).astype(np.int64), "mid_move": m[changed] - pre_mid}
+    )
+
+
 @dataclass
 class Panels:
     fine: pl.DataFrame
     coarse: pl.DataFrame
     baselines: pl.DataFrame
+    moves: pl.DataFrame
 
 
 def build_panels(
     cfg: Settings, stages: list[Stage], provider: FrameProvider, instruments: list[str]
 ) -> Panels:
     p = cfg.panel
-    fine_parts, coarse_parts = [], []
+    fine_parts, coarse_parts, move_parts = [], [], []
     for st in stages:
         for inst in instruments:
             book = provider.book(st.window_id, inst)
@@ -222,7 +250,9 @@ def build_panels(
             )
             fine_parts.append(tag(f, st, inst, book))
             coarse_parts.append(tag(c, st, inst, book))
+            move_parts.append(tag(mid_changes(book.frame, st.t0_ns), st, inst, book))
     fine = pl.concat(fine_parts) if fine_parts else pl.DataFrame()
     coarse = pl.concat(coarse_parts) if coarse_parts else pl.DataFrame()
     base = baselines(coarse, p.baseline_window_s) if coarse.height else pl.DataFrame()
-    return Panels(fine, coarse, base)
+    moves = pl.concat(move_parts) if move_parts else pl.DataFrame()
+    return Panels(fine, coarse, base, moves)

@@ -66,7 +66,7 @@ class PanelBuildResult:
 def run_panel_build(
     cfg: Settings, stages: list[Stage], provider: FrameProvider, instruments: list[str]
 ) -> PanelBuildResult:
-    for grid in ("fine", "coarse"):
+    for grid in ("fine", "coarse", "moves"):
         for old in panel_dir(cfg, grid).glob("*.parquet"):
             old.unlink()
     base_parts = []
@@ -79,6 +79,7 @@ def run_panel_build(
             continue
         write_stage(cfg, "fine", st.window_id, st.stage, panels.fine)
         write_stage(cfg, "coarse", st.window_id, st.stage, panels.coarse)
+        write_stage(cfg, "moves", st.window_id, st.stage, panels.moves)
         base_parts.append(panels.baselines)
         built += 1
         if st.event_type != "CONTROL":
