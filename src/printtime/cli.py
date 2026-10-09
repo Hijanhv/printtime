@@ -16,12 +16,15 @@ from __future__ import annotations
 
 import datetime as dt
 from pathlib import Path
-from typing import Annotated
+from typing import TYPE_CHECKING, Annotated
 
 import typer
 
 from printtime.config import Settings, load_config
 from printtime.log import configure_logging, get_logger
+
+if TYPE_CHECKING:
+    from printtime.data.plan import Window
 
 app = typer.Typer(add_completion=False, no_args_is_help=True, help=__doc__)
 calendar_app = typer.Typer(no_args_is_help=True, help="Release calendar and surprises (Phase 1)")
@@ -203,16 +206,111 @@ def calendar_validate(
 
 
 # Phase 2 ---------------------------------------------------------------------
+def _windows(c: Settings) -> tuple[list[Window], list[Window]]:
+    import polars as pl
+
+    from printtime.calendar.events import load_calendar
+    from printtime.data.plan import control_windows, event_windows
+
+    calendar = load_calendar(c)
+    ctrl_path = c.paths.calendar / "control_days.csv"
+    if not ctrl_path.exists():
+        typer.echo("no control days yet: run `printtime data controls` first", err=True)
+        raise typer.Exit(code=2)
+    controls = pl.read_csv(ctrl_path, try_parse_dates=True)
+    return event_windows(calendar, c.tier(1)), control_windows(controls)
+
+
+@data_app.command("controls")
+def data_controls(
+    allow_no_tier2: Annotated[
+        bool,
+        typer.Option(
+            "--allow-no-tier2", help="Choose controls without Tier 2 dates (not recommended)"
+        ),
+    ] = False,
+) -> None:
+    """Choose control days (same clock time, no release) and write control_days.csv."""
+    from printtime.calendar.events import load_calendar
+    from printtime.data.controls import select_control_days
+
+    c = cfg()
+    controls = select_control_days(c, load_calendar(c), require_tier2=not allow_no_tier2)
+    out = c.paths.calendar / "control_days.csv"
+    controls.write_csv(out)
+    for (t,), g in controls.group_by(["time_et"], maintain_order=True):
+        typer.echo(f"  {t}: {g.height} control days ({', '.join(sorted(set(g['weekday'])))})")
+    typer.echo(f"wrote {out}")
+
+
 @data_app.command("plan-costs")
 def data_plan_costs() -> None:
-    """Price a sample, extrapolate the full plan, and show trimming options."""
-    not_built(2, "data plan-costs")
+    """Price sample windows (free quotes), extrapolate the full plan, show trimming options."""
+    from printtime.data import databento_io as dbio
+    from printtime.data.plan import markdown, plan_costs
+
+    c = cfg()
+    events, controls = _windows(c)
+    api = dbio.client(c)
+    est = plan_costs(
+        c,
+        events,
+        controls,
+        lambda r: dbio.quote(c, r, api),
+        lambda r: dbio.billable_bytes(c, r, api),
+    )
+    ledger = dbio.SpendLedger(c.databento.spend_ledger, c.databento.budget_usd)
+    md = markdown(est, c.databento.budget_usd, ledger.remaining)
+    c.paths.tables.mkdir(parents=True, exist_ok=True)
+    (c.paths.tables / "cost_plan.md").write_text(md)
+    est.samples.write_csv(c.paths.tables / "cost_plan_samples.csv")
+    typer.echo(md)
+    typer.echo(
+        "Nothing was bought. Choose an option, set it in config.yaml, "
+        "then run `printtime data download`."
+    )
 
 
 @data_app.command("download")
-def data_download() -> None:
-    """Budgeted, cached Databento downloads."""
-    not_built(2, "data download")
+def data_download(
+    yes: Annotated[
+        bool, typer.Option("--yes", help="Actually buy; without it this is a priced dry run")
+    ] = False,
+    schema: Annotated[list[str] | None, typer.Option(help="Limit to these schemas")] = None,
+) -> None:
+    """Quote every request, check the total against the budget, and (with --yes) buy.
+
+    Files already in data/raw are never bought again.
+    """
+    from printtime.data import databento_io as dbio
+    from printtime.data.plan import control_windows_from, plan_settings, requests_for
+
+    c = cfg()
+    events, controls = _windows(c)
+    ps = plan_settings(c)
+    reqs = requests_for(c, events + control_windows_from(controls, ps.controls), ps)
+    if schema:
+        reqs = [r for r in reqs if r.schema in schema]
+    todo = [r for r in reqs if not r.path(c.paths.raw).exists()]
+    api = dbio.client(c)
+    total = sum(dbio.quote(c, r, api) for r in todo)
+    ledger = dbio.SpendLedger(c.databento.spend_ledger, c.databento.budget_usd)
+    typer.echo(
+        f"{len(reqs)} requests, {len(reqs) - len(todo)} cached, "
+        f"{len(todo)} to buy for ${total:.2f}; "
+        f"${ledger.remaining:.2f} of ${ledger.budget:.2f} left."
+    )
+    if total > ledger.remaining + 1e-9:
+        typer.echo(
+            "This exceeds the remaining budget. Trim the plan (see `data plan-costs`).", err=True
+        )
+        raise typer.Exit(code=1)
+    if not yes:
+        typer.echo("Dry run: nothing bought. Re-run with --yes to buy.")
+        return
+    for r in todo:
+        dbio.download(c, r, api, confirm=True)
+    typer.echo(f"done; spent ${ledger.spent:.2f} in total.")
 
 
 # Phase 3 ---------------------------------------------------------------------
