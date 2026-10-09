@@ -189,6 +189,12 @@ class Analysis(_Strict):
     _check = field_validator("fomc_surprise_window_s")(_window)
 
 
+class RegressionCfg(_Strict):
+    fomc_surprise_instrument: str
+    approx_modified_duration: dict[str, float]
+    expected_sign: dict[str, dict[str, Literal[-1, 0, 1]]]
+
+
 class Monitoring(_Strict):
     metrics_port: int
     alert_spread_ticks: int = Field(gt=0)
@@ -244,6 +250,7 @@ class Settings(_Strict):
     validation: Validation
     roll: Roll
     analysis: Analysis
+    regression: RegressionCfg
     monitoring: Monitoring
     synthetic: Synthetic
 

@@ -159,6 +159,23 @@ analysis:
     exits_s: [300, 1800, 7200]
     min_train_events: 8
 
+regression:
+  # FOMC has no consensus number: the surprise is market-implied, the ZT price
+  # change from 10 min before to 20 min after the statement (spec 3.3),
+  # standardised across meetings and signed so that positive = hawkish
+  # (ZT price down). ZT's own FOMC regression is then mechanical and flagged.
+  fomc_surprise_instrument: ZT
+  # Rough modified durations of the cheapest-to-deliver, used ONLY for the
+  # approximate yield conversion the spec asks for: dy(bp) ~= -(dP/P) / D * 1e4.
+  approx_modified_duration: {ZT: 1.9, ZF: 4.0, ZN: 6.3, ZB: 11.5}
+  # Textbook direction of the price response to a POSITIVE surprise (hotter
+  # inflation, stronger payrolls, hawkish Fed). Used only to flag results for
+  # investigation (spec 7 "sign check"); 0 means no firm expectation.
+  expected_sign:
+    CPI:  {ZT: -1, ZF: -1, ZN: -1, ZB: -1, ES: -1, GC: -1, CL: 0, 6E: -1, 6J: -1}
+    NFP:  {ZT: -1, ZF: -1, ZN: -1, ZB: -1, ES: 0, GC: -1, CL: 0, 6E: -1, 6J: -1}
+    FOMC: {ZT: -1, ZF: -1, ZN: -1, ZB: -1, ES: -1, GC: -1, CL: 0, 6E: -1, 6J: -1}
+
 monitoring:
   metrics_port: 8000
   alert_spread_ticks: 3

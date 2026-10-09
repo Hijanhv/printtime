@@ -55,6 +55,14 @@ def stages_for_study(cfg: Settings, study: SyntheticStudy) -> list[Stage]:
     return sorted(out, key=lambda x: (x.t0_ns, x.window_id))
 
 
+def save_study(cfg: Settings, study: SyntheticStudy) -> Path:
+    """Store a synthetic study's known surprises where the regressions look for them."""
+    cfg.paths.calendar.mkdir(parents=True, exist_ok=True)
+    path = cfg.paths.calendar / "synthetic_surprises.parquet"
+    study.surprises.write_parquet(path)
+    return path
+
+
 @dataclass
 class PanelBuildResult:
     stages_built: int
