@@ -32,11 +32,23 @@ def stages_from(
         for r in calendar.filter(pl.col("event_type").is_in(tier)).iter_rows(named=True)
     ]
     if controls is not None:
-        out += [
-            Stage(r["control_id"], "CONTROL", "control", r["time_et"], int(r["t0_utc_ns"]))
-            for r in controls.iter_rows(named=True)
-        ]
+        for r in controls.iter_rows(named=True):
+            out += control_stages(r["control_id"], r["time_et"], int(r["t0_utc_ns"]))
     return sorted(out, key=lambda s: (s.t0_ns, s.window_id))
+
+
+# Extra alignment points inside a control window, so every event time has a
+# matching control: FOMC press conferences are at 14:30, and the 14:00 control
+# window (-30 min to +60 min) already covers 14:30 at no extra data cost.
+EXTRA_CONTROL_TIMES = {"14:00": [("14:30", 30 * 60)]}
+
+
+def control_stages(control_id: str, time_et: str, t0_ns: int) -> list[Stage]:
+    out = [Stage(control_id, "CONTROL", "control", time_et, t0_ns)]
+    for extra_time, shift_s in EXTRA_CONTROL_TIMES.get(time_et, []):
+        stage = f"control_{extra_time.replace(':', '')}"
+        out.append(Stage(control_id, "CONTROL", stage, extra_time, t0_ns + shift_s * NS))
+    return out
 
 
 @dataclass

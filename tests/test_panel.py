@@ -181,7 +181,15 @@ def test_stages_cover_both_fomc_stages_and_controls() -> None:
         {"control_id": ["CONTROL1400_2025-06-25"], "time_et": ["14:00"], "t0_utc_ns": [9]}
     )
     st_ = stages_from(cal, ctl, ["CPI", "NFP", "FOMC"])
-    assert [s.stage for s in st_] == ["release", "statement", "press_conference", "control"]
+    assert [s.stage for s in st_] == [
+        "release",
+        "statement",
+        "press_conference",
+        "control",
+        "control_1430",
+    ]
+    extra = st_[-1]
+    assert extra.time_et == "14:30" and extra.t0_ns == 9 + 30 * 60 * NS
 
 
 def test_panel_build_pipeline_on_a_small_synthetic_study(tmp_path) -> None:  # type: ignore[no-untyped-def]
@@ -206,9 +214,10 @@ def test_panel_build_pipeline_on_a_small_synthetic_study(tmp_path) -> None:  # t
     study = synthetic_study(cfg, n_per_type=2, n_controls=1)
     stages = stages_for_study(cfg, study)
     result = run_panel_build(cfg, stages, SyntheticProvider(cfg, study.scenarios), ["ZN", "ES"])
-    assert result.stages_built == len(stages) == 8
+    assert result.stages_built == len(stages) == 9  # 6 events + 2 controls + a 14:30 control stage
     fine = scan(cfg, "fine").collect()
     assert fine["window_id"].n_unique() == 8 and set(fine["instrument"]) == {"ZN", "ES"}
+    assert fine.filter(pl.col("stage") == "control_1430")["time_et"].unique().to_list() == ["14:30"]
     assert set(result.validation["event_id"]) == {
         s.window_id for s in stages if s.event_type != "CONTROL"
     }

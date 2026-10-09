@@ -42,12 +42,17 @@ def synthetic_settings(cfg: Settings, root: Path = Path("data/synthetic_run")) -
 
 
 def stages_for_study(cfg: Settings, study: SyntheticStudy) -> list[Stage]:
+    from printtime.panel.providers import control_stages
+
     out = []
     for wid, s in study.scenarios.items():
-        kind = "CONTROL" if s.control else s.event_type
-        stage = "control" if s.control else STAGE_FOR[s.event_type]
-        out.append(Stage(wid, kind, stage, s.time_et, s.t0_ns(cfg.timezone)))
-    return sorted(out, key=lambda x: x.t0_ns)
+        if s.control:
+            out += control_stages(wid, s.time_et, s.t0_ns(cfg.timezone))
+        else:
+            out.append(
+                Stage(wid, s.event_type, STAGE_FOR[s.event_type], s.time_et, s.t0_ns(cfg.timezone))
+            )
+    return sorted(out, key=lambda x: (x.t0_ns, x.window_id))
 
 
 @dataclass

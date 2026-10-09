@@ -64,7 +64,9 @@ select = ["E", "F", "W", "I", "B", "UP", "N", "SIM", "RUF"]
 ignore = ["N803", "N806", "RUF001", "RUF002", "RUF003"]
 
 [tool.ruff.lint.per-file-ignores]
-"tests/*" = ["N802"]
+"tests/*" = ["N802", "E501"]
+# analysis modules build report text in long f-strings; code lines are still formatted
+"src/printtime/analysis/*.py" = ["E501"]
 
 [tool.mypy]
 python_version = "3.12"
