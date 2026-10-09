@@ -23,6 +23,7 @@ from printtime.synthetic.generator import SyntheticStudy
 log = get_logger(__name__)
 
 STAGE_FOR = {"CPI": "release", "NFP": "release", "FOMC": "statement"}
+SCENARIO_FILE = "synthetic_scenarios.parquet"
 
 
 def synthetic_settings(cfg: Settings, root: Path = Path("data/synthetic_run")) -> Settings:
@@ -60,6 +61,19 @@ def save_study(cfg: Settings, study: SyntheticStudy) -> Path:
     cfg.paths.calendar.mkdir(parents=True, exist_ok=True)
     path = cfg.paths.calendar / "synthetic_surprises.parquet"
     study.surprises.write_parquet(path)
+    pl.DataFrame(
+        [
+            {
+                "window_id": wid,
+                "event_type": s.event_type,
+                "date": s.date,
+                "time_et": s.time_et,
+                "surprise_sd": s.surprise_sd,
+                "control": s.control,
+            }
+            for wid, s in study.scenarios.items()
+        ]
+    ).write_parquet(cfg.paths.calendar / SCENARIO_FILE)
     return path
 
 

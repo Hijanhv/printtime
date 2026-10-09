@@ -198,7 +198,7 @@ synthetic:
     activity_multiplier: 8.0       # update and trade rate at the reaction, x baseline
     activity_half_life_s: 40        # real releases stay volatile for minutes, not seconds
   instruments:
-    ZN: {tick_size: 0.015625, start_price: 112.0, base_depth: 900, update_rate: 40.0, trade_share: 0.15, vol_ticks_per_s: 0.05, jump_ticks_per_sd: -4.0, lag_ms: 0}
-    ZT: {tick_size: 0.00390625, start_price: 104.0, base_depth: 2500, update_rate: 30.0, trade_share: 0.12, vol_ticks_per_s: 0.04, jump_ticks_per_sd: -6.0, lag_ms: 5}
-    ES: {tick_size: 0.25, start_price: 6500.0, base_depth: 40, update_rate: 80.0, trade_share: 0.2, vol_ticks_per_s: 0.3, jump_ticks_per_sd: -8.0, lag_ms: 12}
-    GC: {tick_size: 0.1, start_price: 3400.0, base_depth: 15, update_rate: 25.0, trade_share: 0.15, vol_ticks_per_s: 0.4, jump_ticks_per_sd: -10.0, lag_ms: 40}
+    ZN: {multiplier: 1000, tick_size: 0.015625, start_price: 112.0, base_depth: 900, update_rate: 40.0, trade_share: 0.15, vol_ticks_per_s: 0.05, jump_ticks_per_sd: -4.0, lag_ms: 0}
+    ZT: {multiplier: 2000, tick_size: 0.00390625, start_price: 104.0, base_depth: 2500, update_rate: 30.0, trade_share: 0.12, vol_ticks_per_s: 0.04, jump_ticks_per_sd: -6.0, lag_ms: 5}
+    ES: {multiplier: 50, tick_size: 0.25, start_price: 6500.0, base_depth: 40, update_rate: 80.0, trade_share: 0.2, vol_ticks_per_s: 0.3, jump_ticks_per_sd: -8.0, lag_ms: 12}
+    GC: {multiplier: 100, tick_size: 0.1, start_price: 3400.0, base_depth: 15, update_rate: 25.0, trade_share: 0.15, vol_ticks_per_s: 0.4, jump_ticks_per_sd: -10.0, lag_ms: 40}

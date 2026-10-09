@@ -213,6 +213,7 @@ class SyntheticEvent(_Strict):
 
 
 class SyntheticInstrument(_Strict):
+    multiplier: float = Field(gt=0)  # contract size: one tick is worth tick_size x multiplier USD
     tick_size: float = Field(gt=0)
     start_price: float = Field(gt=0)
     base_depth: int = Field(gt=0)

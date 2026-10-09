@@ -65,7 +65,8 @@ class SyntheticProvider:
         key = (window_id, instrument)
         if key not in self._cache:
             b = generate_book(self.cfg, self.scenarios[window_id], instrument)
-            self._cache[key] = Book(b.frame, b.tick_size, "synthetic")
+            mult = self.cfg.synthetic.instruments[instrument].multiplier
+            self._cache[key] = Book(b.frame, b.tick_size, "synthetic", mult)
         return self._cache[key]
 
 
@@ -119,4 +120,24 @@ class DatabentoProvider:
         self.reports.append(q)
         if q.status == "reject":
             return None
-        return Book(frame, ticks[0], self.schema)
+        mults = [m for m in defs["multiplier"].to_list() if m == m]
+        return Book(frame, ticks[0], self.schema, mults[0] if mults else float("nan"))
+
+
+def provider_for(cfg: Settings, schema: str = "mbp-1") -> SyntheticProvider | DatabentoProvider:
+    """Book source for analyses: the synthetic study in a synthetic run, else Databento files."""
+    path = cfg.paths.calendar / "synthetic_scenarios.parquet"
+    if path.exists():
+        rows = pl.read_parquet(path).iter_rows(named=True)
+        scen = {
+            r["window_id"]: Scenario(
+                r["event_type"], r["date"], r["time_et"], r["surprise_sd"], r["control"]
+            )
+            for r in rows
+        }
+        return SyntheticProvider(cfg, scen)
+    from printtime.calendar.events import load_calendar
+
+    ctrl_path = cfg.paths.calendar / "control_days.csv"
+    ctrl = pl.read_csv(ctrl_path, try_parse_dates=True) if ctrl_path.exists() else None
+    return DatabentoProvider(cfg, stages_from(load_calendar(cfg), ctrl, cfg.tier(1)), schema=schema)

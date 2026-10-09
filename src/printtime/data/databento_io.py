@@ -249,6 +249,15 @@ def read_dbn(path: Path) -> npt.NDArray[Any]:
     return arr
 
 
+def _multiplier(records: npt.NDArray[Any]) -> npt.NDArray[np.float64]:
+    names = records.dtype.names or ()
+    if "unit_of_measure_qty" in names:
+        v = records["unit_of_measure_qty"].astype(np.int64) * FIXED_PRICE_SCALE
+        out: npt.NDArray[np.float64] = np.where(v > 0, v, np.nan)
+        return out
+    return np.full(records.shape[0], np.nan)
+
+
 def definitions_frame(records: npt.NDArray[Any]) -> pl.DataFrame:
     """Tick size, raw symbol and expiry per instrument_id, from definition records."""
     return pl.DataFrame(
@@ -256,6 +265,9 @@ def definitions_frame(records: npt.NDArray[Any]) -> pl.DataFrame:
             "instrument_id": records["instrument_id"].astype(np.int64),
             "raw_symbol": [_text(s) for s in records["raw_symbol"]],
             "tick_size": records["min_price_increment"].astype(np.int64) * FIXED_PRICE_SCALE,
+            # Contract size in units of the underlying (e.g. 1000 for ZN = $100,000 face / 100):
+            # one tick is worth tick_size x multiplier USD.
+            "multiplier": _multiplier(records),
             "expiration_ns": records["expiration"].astype(np.int64),
         }
     ).unique("instrument_id", keep="last")

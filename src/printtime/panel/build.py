@@ -83,6 +83,7 @@ class Book:
     frame: pl.DataFrame
     tick_size: float
     source: str  # mbp-1, mbp-10, synthetic
+    multiplier: float = float("nan")  # USD per tick = tick_size x multiplier
 
 
 class FrameProvider(Protocol):
@@ -163,6 +164,7 @@ def tag(df: pl.DataFrame, stage: Stage, instrument: str, book: Book) -> pl.DataF
         pl.lit(stage.time_et).alias("time_et"),
         pl.lit(instrument).alias("instrument"),
         pl.lit(book.tick_size).alias("tick_size"),
+        pl.lit(book.multiplier).alias("multiplier"),
         pl.lit(book.source).alias("source"),
     )
 
