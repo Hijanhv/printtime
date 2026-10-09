@@ -369,7 +369,12 @@ def panel_build(
 @analyze_app.command("liquidity")
 def analyze_liquidity() -> None:
     """Depth withdrawal, spreads, activity and recovery vs control days."""
-    not_built(4, "analyze liquidity")
+    from printtime.analysis.liquidity import run
+
+    res = run(cfg())
+    for line in res.headline:
+        typer.echo(line)
+    typer.echo(f"tables in {cfg().paths.tables}, figures in {cfg().paths.figures}")
 
 
 @analyze_app.command("reaction")
