@@ -88,15 +88,118 @@ def synth(
 
 # Phase 1 ---------------------------------------------------------------------
 @calendar_app.command("build")
-def calendar_build() -> None:
-    """Fetch CPI and NFP release dates from FRED and write data/calendar/releases.csv."""
-    not_built(1, "calendar build")
+def calendar_build(
+    tier2: Annotated[
+        bool, typer.Option("--tier2", help="Also fetch PPI, retail sales and jobless claims")
+    ] = False,
+) -> None:
+    """Fetch CPI and NFP release dates from FRED, add FOMC dates, write releases.csv."""
+    from printtime.calendar.events import (
+        build_calendar,
+        fomc_event_rows,
+        fred_event_rows,
+        validate_fomc,
+        write_fomc_template,
+    )
+    from printtime.calendar.fred import FredClient
+    from printtime.calendar.surprises import write_surprises_template
+    from printtime.secrets import require_key
+
+    c = cfg()
+    cal_dir = c.paths.calendar
+    fomc_path = cal_dir / "fomc_dates.csv"
+    surprises_path = cal_dir / "surprises.csv"
+    for path, created in (
+        (fomc_path, write_fomc_template(fomc_path)),
+        (surprises_path, write_surprises_template(surprises_path)),
+    ):
+        if created:
+            typer.echo(f"created template {path}: please fill it in")
+    event_types = [
+        e for e in c.tier(1) + (c.tier(2) if tier2 else []) if c.events[e].fred_release_search
+    ]
+    key = require_key(c.fred.api_key_env)
+    with FredClient(key, c.fred.base_url, c.fred.timeout_s) as client:
+        rows = fred_event_rows(c, client, event_types)
+    fomc, rep = validate_fomc(c, fomc_path)
+    if rep.ok:
+        rows += fomc_event_rows(c, fomc)
+    else:
+        typer.echo(f"FOMC dates not included yet ({len(rep.errors)} issue(s) in {fomc_path.name}).")
+    calendar = build_calendar(rows)
+    out = cal_dir / "releases.csv"
+    calendar.write_csv(out)
+    counts = calendar.group_by(["event_type", "stage"]).len().sort(["event_type", "stage"])
+    typer.echo(f"wrote {out} with {calendar.height} timestamps:")
+    for r in counts.iter_rows(named=True):
+        typer.echo(f"  {r['event_type']:<6} {r['stage']:<17} {r['len']}")
 
 
 @calendar_app.command("validate")
-def calendar_validate() -> None:
-    """Validate fomc_dates.csv and surprises.csv, cross-check against ALFRED, summarise."""
-    not_built(1, "calendar validate")
+def calendar_validate(
+    skip_alfred: Annotated[
+        bool, typer.Option("--skip-alfred", help="Do not cross-check against ALFRED")
+    ] = False,
+) -> None:
+    """Validate fomc_dates.csv and surprises.csv, cross-check actuals against ALFRED, summarise."""
+    from printtime.calendar.alfred import cross_check, fredapi_loader, mismatches
+    from printtime.calendar.events import load_calendar, validate_fomc
+    from printtime.calendar.surprises import summary, validate_surprises
+    from printtime.secrets import has_key, require_key
+
+    c = cfg()
+    calendar = load_calendar(c)
+    _, fomc_rep = validate_fomc(c, c.paths.calendar / "fomc_dates.csv")
+    surprises, sur_rep = validate_surprises(c, c.paths.calendar / "surprises.csv", calendar)
+    failed = False
+    for rep in (fomc_rep, sur_rep):
+        for w in rep.warnings:
+            typer.echo(f"warning [{rep.name}]: {w}")
+        for e in rep.errors:
+            typer.echo(f"ERROR   [{rep.name}]: {e}")
+        failed |= not rep.ok
+    if not failed and not skip_alfred:
+        if not has_key(c.fred.api_key_env):
+            typer.echo("ALFRED cross-check skipped: FRED_API_KEY is not set.")
+        else:
+            check = cross_check(c, surprises, fredapi_loader(require_key(c.fred.api_key_env)))
+            c.paths.tables.mkdir(parents=True, exist_ok=True)
+            check.write_csv(c.paths.tables / "alfred_cross_check.csv")
+            bad = mismatches(check)
+            typer.echo(
+                f"ALFRED cross-check: {check.height - bad.height} of {check.height} "
+                "match after rounding."
+            )
+            for r in bad.iter_rows(named=True):
+                typer.echo(
+                    f"  {r['status']}: {r['event_id']} {r['variable']} "
+                    f"actual={r['actual']} alfred={r['alfred_rounded']}"
+                )
+            failed |= bad.height > 0
+    typer.echo("\nEvents in the calendar:")
+    for r in (
+        calendar.group_by(["event_type", "stage"])
+        .len()
+        .sort(["event_type", "stage"])
+        .iter_rows(named=True)
+    ):
+        typer.echo(f"  {r['event_type']:<6} {r['stage']:<17} {r['len']}")
+    if surprises.height:
+        typer.echo("\nSurprise distributions (actual - consensus):")
+
+        def fmt(x: float | None, spec: str) -> str:
+            return "n/a" if x is None else format(x, spec)
+
+        for r in summary(surprises).iter_rows(named=True):
+            typer.echo(
+                f"  {r['variable']:<18} n={r['events']:<3} mean={fmt(r['mean_surprise'], '+.3f')} "
+                f"sd={fmt(r['sd_surprise'], '.3f')} "
+                f"min={fmt(r['min_surprise'], '+.3f')} max={fmt(r['max_surprise'], '+.3f')} "
+                f"|z|>1: {r['abs_z_over_1']}"
+            )
+    if failed:
+        raise typer.Exit(code=1)
+    typer.echo("\ncalendar validate: passed")
 
 
 # Phase 2 ---------------------------------------------------------------------
