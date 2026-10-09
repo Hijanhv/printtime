@@ -91,7 +91,17 @@ class Databento(_Strict):
 class Fred(_Strict):
     base_url: str
     api_key_env: str
-    first_release_series: dict[str, str]
+    timeout_s: float = Field(gt=0)
+
+
+class SurpriseVariable(_Strict):
+    event_type: str
+    unit: Literal["pct", "thousands"]
+    primary: bool
+    series: str
+    transform: Literal["pct_change", "diff", "level"]
+    decimals: int = Field(ge=0)
+    plausible: tuple[float, float]
 
 
 class Grid(_Strict):
@@ -193,11 +203,33 @@ class Settings(_Strict):
     events: dict[str, EventType]
     databento: Databento
     fred: Fred
+    surprise_variables: dict[str, SurpriseVariable]
     panel: Panel
     control_days: ControlDays
     analysis: Analysis
     monitoring: Monitoring
     synthetic: Synthetic
+
+    @model_validator(mode="after")
+    def _surprise_variables(self) -> Settings:
+        for name, v in self.surprise_variables.items():
+            if v.event_type not in self.events:
+                raise ValueError(f"surprise variable {name}: unknown event type {v.event_type}")
+        for et in ("CPI", "NFP"):
+            primaries = [
+                n for n, v in self.surprise_variables.items() if v.event_type == et and v.primary
+            ]
+            if len(primaries) != 1:
+                raise ValueError(
+                    f"{et} needs exactly one primary surprise variable, has {primaries}"
+                )
+        return self
+
+    def primary_variable(self, event_type: str) -> str:
+        for name, v in self.surprise_variables.items():
+            if v.event_type == event_type and v.primary:
+                return name
+        raise KeyError(f"no primary surprise variable for {event_type}")
 
     @model_validator(mode="after")
     def _mbp10_subset(self) -> Settings:

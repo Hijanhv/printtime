@@ -73,9 +73,18 @@ databento:
 fred:
   base_url: https://api.stlouisfed.org/fred
   api_key_env: FRED_API_KEY
-  first_release_series:
-    core_cpi_index: CPILFESL
-    payrolls_level: PAYEMS
+  timeout_s: 30
+
+# Surprise variables you record in data/calendar/surprises.csv. Each one is
+# cross-checked against its first published value in ALFRED: `transform`
+# says how the published figure is derived from the series, `decimals` is the
+# rounding of the published figure (0.1% or 1k), `plausible` flags typos.
+surprise_variables:
+  core_cpi_mom:      {event_type: CPI, unit: pct, primary: true,  series: CPILFESL, transform: pct_change, decimals: 1, plausible: [-1.5, 2.0]}
+  headline_cpi_mom:  {event_type: CPI, unit: pct, primary: false, series: CPIAUCSL, transform: pct_change, decimals: 1, plausible: [-2.0, 2.5]}
+  nfp_change:        {event_type: NFP, unit: thousands, primary: true,  series: PAYEMS, transform: diff, decimals: 0, plausible: [-1500, 1500]}
+  unemployment_rate: {event_type: NFP, unit: pct, primary: false, series: UNRATE, transform: level, decimals: 1, plausible: [2.0, 15.0]}
+  ahe_mom:           {event_type: NFP, unit: pct, primary: false, series: CES0500000003, transform: pct_change, decimals: 1, plausible: [-1.0, 2.0]}
 
 panel:
   fine_grid: {step_ms: 100, start_s: -60, end_s: 120}
