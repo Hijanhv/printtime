@@ -433,9 +433,77 @@ def report() -> None:
 
 
 @app.command()
-def replay() -> None:
+def replay(
+    window: Annotated[str | None, typer.Option(help="Event to replay, e.g. CPI_2025-03-12")] = None,
+    synthetic: Annotated[
+        bool, typer.Option("--synthetic", help="Replay a synthetic CPI release")
+    ] = False,
+    realtime: Annotated[
+        bool, typer.Option("--realtime/--fast", help="Pace at market speed")
+    ] = True,
+    speed: Annotated[float, typer.Option(help="Market seconds per wall second")] = 1.0,
+    start: Annotated[int, typer.Option(help="Seconds from release to start")] = -300,
+    end: Annotated[int, typer.Option(help="Seconds from release to stop")] = 600,
+    port: Annotated[
+        int | None, typer.Option("--metrics-port", help="Serve Prometheus metrics")
+    ] = None,
+    loop: Annotated[bool, typer.Option("--loop", help="Start again when the window ends")] = False,
+) -> None:
     """Replay a release window at market speed with Prometheus metrics."""
-    not_built(8, "replay")
+    import datetime as dt
+
+    from printtime.replay.live import ReplayMetrics
+    from printtime.replay.live import replay as play
+
+    c = cfg()
+    if synthetic:
+        from printtime.panel.build import Book
+        from printtime.synthetic.generator import Scenario, generate_event
+
+        scen = Scenario("CPI", dt.date(2025, 3, 12), c.events["CPI"].times_et[0], 1.5)
+        gen = generate_event(c, scen)
+        books = {
+            k: Book(b.frame, b.tick_size, "synthetic", c.synthetic.instruments[k].multiplier)
+            for k, b in gen.items()
+        }
+        t0 = scen.t0_ns(c.timezone)
+        label = f"synthetic {scen.event_id}"
+    else:
+        from printtime.panel.providers import provider_for
+
+        provider = provider_for(c, "mbp-1")
+        stages = getattr(provider, "stages", [])
+        chosen = [
+            s
+            for s in stages
+            if s.event_type != "CONTROL" and (window is None or s.window_id == window)
+        ]
+        if not chosen:
+            typer.echo(
+                "no matching release window; build the calendar and data first, or use --synthetic",
+                err=True,
+            )
+            raise typer.Exit(code=2)
+        st = chosen[0]
+        books = {}
+        for inst in c.instruments:
+            b = provider.book(st.window_id, inst)
+            if b is not None:
+                books[inst] = b
+        t0, label = st.t0_ns, st.window_id
+    metrics = ReplayMetrics()
+    if port:
+        metrics.serve(port)
+    while True:
+        stats = play(books, t0, metrics, start_s=start, end_s=end, realtime=realtime, speed=speed)
+        log.info(
+            "replay_done",
+            window=label,
+            events=stats.events,
+            wall_seconds=round(stats.wall_seconds, 2),
+        )
+        if not loop:
+            break
 
 
 if __name__ == "__main__":
