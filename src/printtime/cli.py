@@ -406,13 +406,23 @@ def analyze_regression() -> None:
 @analyze_app.command("execution")
 def analyze_execution() -> None:
     """Execution-cost curves from walking the 10-level book."""
-    not_built(7, "analyze execution")
+    from printtime.analysis.execution import run
+
+    res = run(cfg())
+    for line in res.headline:
+        typer.echo(line)
+    typer.echo(f"tables in {cfg().paths.tables}, figures in {cfg().paths.figures}")
 
 
 @analyze_app.command("strategy")
 def analyze_strategy() -> None:
     """Chronologically validated surprise-direction strategy."""
-    not_built(7, "analyze strategy")
+    from printtime.analysis.strategy import run
+
+    res = run(cfg())
+    for line in res.headline:
+        typer.echo(line)
+    typer.echo(f"tables in {cfg().paths.tables}, figures in {cfg().paths.figures}")
 
 
 # Phases 8-9 ------------------------------------------------------------------
