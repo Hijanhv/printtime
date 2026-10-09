@@ -11,3 +11,4 @@ Plain-English notes on every module, written to be explained out loud in an inte
 | 04 | [Data: cost plan, downloads, control days, quality, validation](04-data.md) | Phase 2 |
 | 05 | [Event-time panels](05-panels.md) | Phase 3 |
 | 06 | [Liquidity dynamics](06-liquidity.md) | Phase 4 |
+| 07 | [Price reaction and first mover](07-price-reaction.md) | Phase 5 |

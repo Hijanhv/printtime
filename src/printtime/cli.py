@@ -380,7 +380,12 @@ def analyze_liquidity() -> None:
 @analyze_app.command("reaction")
 def analyze_reaction() -> None:
     """Jump sizes, first mover and lead-lag."""
-    not_built(5, "analyze reaction")
+    from printtime.analysis.reaction import run
+
+    res = run(cfg())
+    for line in res.headline:
+        typer.echo(line)
+    typer.echo(f"tables in {cfg().paths.tables}, figures in {cfg().paths.figures}")
 
 
 @analyze_app.command("regression")
