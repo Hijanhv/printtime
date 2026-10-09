@@ -226,3 +226,38 @@ def synthetic_calendar(
             )
         )
     return out
+
+
+@dataclass(frozen=True)
+class SyntheticStudy:
+    """A complete fake study: every Tier 1 event type plus control days, known surprises."""
+
+    scenarios: dict[str, Scenario]  # window_id -> scenario
+    surprises: pl.DataFrame  # event_id, event_type, release_date, z
+
+
+def synthetic_study(cfg: Settings, n_per_type: int = 10, n_controls: int = 8) -> SyntheticStudy:
+    """Weekly fake releases from 2025-01: CPI on Wednesdays, NFP on Fridays, FOMC statements on
+    Wednesdays at 14:00, and control days at 08:30 and 14:00 on Tuesdays and Thursdays."""
+    rng = np.random.default_rng(_seed(cfg.synthetic.seed, "study"))
+    start = dt.date(2025, 1, 6)  # a Monday
+    plan = [("CPI", 2, "08:30"), ("NFP", 4, "08:30"), ("FOMC", 2, "14:00")]
+    scenarios: dict[str, Scenario] = {}
+    rows = []
+    for event_type, weekday, time_et in plan:
+        for k in range(n_per_type):
+            day = start + dt.timedelta(
+                weeks=k * 3 + (1 if event_type == "FOMC" else 0), days=weekday
+            )
+            z = float(rng.standard_normal())
+            s = Scenario(event_type, day, time_et, z)
+            wid = f"{event_type}_{day.isoformat()}"
+            scenarios[wid] = s
+            rows.append({"event_id": wid, "event_type": event_type, "release_date": day, "z": z})
+    for time_et in ("08:30", "14:00"):
+        for k in range(n_controls):
+            day = start + dt.timedelta(weeks=k * 3 + 2, days=1 if k % 2 == 0 else 3)
+            scenarios[f"CONTROL{time_et.replace(':', '')}_{day.isoformat()}"] = Scenario(
+                "CPI" if time_et == "08:30" else "FOMC", day, time_et, 0.0, control=True
+            )
+    return SyntheticStudy(scenarios, pl.DataFrame(rows))
