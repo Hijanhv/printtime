@@ -67,6 +67,7 @@ ignore = ["N803", "N806", "RUF001", "RUF002", "RUF003"]
 "tests/*" = ["N802", "E501"]
 # analysis modules build report text in long f-strings; code lines are still formatted
 "src/printtime/analysis/*.py" = ["E501"]
+"src/printtime/report.py" = ["E501"]
 
 [tool.mypy]
 python_version = "3.12"

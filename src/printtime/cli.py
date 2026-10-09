@@ -52,9 +52,20 @@ def main(
     set_: SetOpt = None,
     log_level: Annotated[str, typer.Option("--log-level")] = "INFO",
     pretty: Annotated[bool, typer.Option("--pretty", help="Readable logs instead of JSON")] = False,
+    synthetic_run: Annotated[
+        bool,
+        typer.Option(
+            "--synthetic-run", help="Read and write the synthetic study under data/synthetic_run"
+        ),
+    ] = False,
 ) -> None:
     configure_logging(log_level, json=not pretty)
-    _state["cfg"] = load_config(config, set_)
+    c = load_config(config, set_)
+    if synthetic_run:
+        from printtime.panel.pipeline import synthetic_settings
+
+        c = synthetic_settings(c)
+    _state["cfg"] = c
 
 
 def cfg() -> Settings:
@@ -428,8 +439,14 @@ def analyze_strategy() -> None:
 # Phases 8-9 ------------------------------------------------------------------
 @app.command()
 def report() -> None:
-    """Write reports/REPORT.md from the result tables."""
-    not_built(9, "report")
+    """Write REPORT.md from the result tables (and the README block, for real runs only)."""
+    from printtime.report import build_report, is_synthetic, update_readme
+
+    c = cfg()
+    path = build_report(c)
+    typer.echo(f"wrote {path}" + (" (SYNTHETIC: not results)" if is_synthetic(c) else ""))
+    if update_readme(c, Path("README.md")):
+        typer.echo("updated the README results block")
 
 
 @app.command()
