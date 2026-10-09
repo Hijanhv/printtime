@@ -44,3 +44,14 @@ def test_synth_writes_one_file_per_instrument(tmp_path: Path) -> None:
     files = sorted(p.stem for p in tmp_path.glob("NFP_2025-04-04_0830/*.parquet"))
     assert files == ["ES", "GC", "ZN", "ZT"]
     assert pl.read_parquet(tmp_path / "NFP_2025-04-04_0830" / "ZN.parquet").height > 0
+
+
+def test_logging_still_works_after_a_cli_run(tmp_path: Path) -> None:
+    """The CLI swaps stderr; loggers must not keep a handle to the closed stream."""
+    from printtime.log import get_logger
+
+    r = CliRunner().invoke(app, [*BASE, "synth", "--out", str(tmp_path)])
+    assert r.exit_code == 0, r.output
+    get_logger("after_cli").info(
+        "still_logging"
+    )  # raised "I/O operation on closed file" before the fix
