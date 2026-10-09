@@ -325,7 +325,12 @@ def panel_build(
     """Align book and trade data onto event-time grids, compute baselines, validate releases."""
     import polars as pl
 
-    from printtime.panel.pipeline import run_panel_build, stages_for_study, synthetic_settings
+    from printtime.panel.pipeline import (
+        run_panel_build,
+        save_study,
+        stages_for_study,
+        synthetic_settings,
+    )
     from printtime.panel.providers import DatabentoProvider, SyntheticProvider, stages_from
 
     c = cfg()
@@ -335,8 +340,7 @@ def panel_build(
         c = synthetic_settings(c)
         study = synthetic_study(c, synthetic, controls)
         stages = stages_for_study(c, study)
-        c.paths.calendar.mkdir(parents=True, exist_ok=True)
-        study.surprises.write_parquet(c.paths.calendar / "synthetic_surprises.parquet")
+        save_study(c, study)
         provider: SyntheticProvider | DatabentoProvider = SyntheticProvider(c, study.scenarios)
         instruments = list(c.synthetic.instruments)
         typer.echo(
@@ -391,7 +395,12 @@ def analyze_reaction() -> None:
 @analyze_app.command("regression")
 def analyze_regression() -> None:
     """Reaction-function regressions with HC3 errors and FDR control."""
-    not_built(6, "analyze regression")
+    from printtime.analysis.regression import run
+
+    res = run(cfg())
+    for line in res.headline:
+        typer.echo(line)
+    typer.echo(f"tables in {cfg().paths.tables}, figures in {cfg().paths.figures}")
 
 
 @analyze_app.command("execution")

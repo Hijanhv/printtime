@@ -12,3 +12,4 @@ Plain-English notes on every module, written to be explained out loud in an inte
 | 05 | [Event-time panels](05-panels.md) | Phase 3 |
 | 06 | [Liquidity dynamics](06-liquidity.md) | Phase 4 |
 | 07 | [Price reaction and first mover](07-price-reaction.md) | Phase 5 |
+| 08 | [Reaction function](08-reaction-function.md) | Phase 6 |
