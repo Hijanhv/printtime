@@ -1,0 +1,32 @@
+# Thresholds mirror config.yaml `monitoring` (spread 3 ticks, depth 25% of baseline, 5 s without data).
+groups:
+  - name: printtime
+    rules:
+      - alert: PrintTimeSpreadWide
+        expr: printtime_spread_ticks > 3
+        labels:
+          severity: warning
+        annotations:
+          summary: "{{ $labels.instrument }} spread is {{ $value }} ticks"
+
+      - alert: PrintTimeDepthCollapsed
+        expr: printtime_depth_pct_of_baseline < 25
+        labels:
+          severity: warning
+        annotations:
+          summary: "{{ $labels.instrument }} top-of-book depth is {{ $value | printf \"%.0f\" }}% of baseline"
+
+      - alert: PrintTimeNoData
+        expr: (time() - printtime_last_event_wall_timestamp_seconds) > 5 and printtime_replay_active == 1
+        labels:
+          severity: critical
+        annotations:
+          summary: "No market data for over 5 s during a replay"
+
+      - alert: PrintTimeReplayDown
+        expr: up{job="printtime"} == 0
+        for: 10s
+        labels:
+          severity: critical
+        annotations:
+          summary: "Replay metrics endpoint is down"

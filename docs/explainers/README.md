@@ -14,3 +14,4 @@ Plain-English notes on every module, written to be explained out loud in an inte
 | 07 | [Price reaction and first mover](07-price-reaction.md) | Phase 5 |
 | 08 | [Reaction function](08-reaction-function.md) | Phase 6 |
 | 09 | [Execution cost and the surprise strategy](09-practical-guidance.md) | Phase 7 |
+| 10 | [Release replay dashboard](10-replay-dashboard.md) | Phase 8 |
