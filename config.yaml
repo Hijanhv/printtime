@@ -1,0 +1,134 @@
+# Print Time configuration. Every tunable number lives here and is validated
+# by printtime.config at load time. Override any key from the CLI with
+#   printtime --set key.subkey=value <command>
+#
+# Tick sizes are deliberately NOT listed for real instruments: they are read
+# from the Databento `definition` schema (min_price_increment) in Phase 2.
+
+paths:
+  raw: data/raw
+  processed: data/processed
+  calendar: data/calendar
+  reports: reports
+  figures: reports/figures
+  tables: reports/tables
+  data_quality: reports/data_quality
+
+timezone: America/New_York
+
+sample:
+  start: "2024-10-01"
+  end: "2026-09-30"
+
+instruments:
+  ZT: {root: ZT, name: 2-Year U.S. Treasury Note, venue: CBOT, mbp10: true}
+  ZF: {root: ZF, name: 5-Year U.S. Treasury Note, venue: CBOT, mbp10: false}
+  ZN: {root: ZN, name: 10-Year U.S. Treasury Note, venue: CBOT, mbp10: true}
+  ZB: {root: ZB, name: U.S. Treasury Bond, venue: CBOT, mbp10: false}
+  ES: {root: ES, name: E-mini S&P 500, venue: CME, mbp10: true}
+  GC: {root: GC, name: Gold, venue: COMEX, mbp10: false}
+  CL: {root: CL, name: WTI Crude Oil, venue: NYMEX, mbp10: false}
+  6E: {root: 6E, name: Euro FX, venue: CME, mbp10: false}
+  6J: {root: 6J, name: Japanese Yen, venue: CME, mbp10: false}
+
+optional_instruments:
+  SR3: {root: SR3, name: 3-Month SOFR, venue: CME, mbp10: false}
+
+events:
+  CPI:
+    tier: 1
+    times_et: ["08:30"]
+    fred_release_search: Consumer Price Index
+  NFP:
+    tier: 1
+    times_et: ["08:30"]
+    fred_release_search: Employment Situation
+  FOMC:
+    tier: 1
+    times_et: ["14:00", "14:30"]   # statement, then press conference as a second timestamp
+    fred_release_search: null      # dates come from data/calendar/fomc_dates.csv
+  PPI:
+    tier: 2
+    times_et: ["08:30"]
+    fred_release_search: Producer Price Index
+  RETAIL:
+    tier: 2
+    times_et: ["08:30"]
+    fred_release_search: Advance Monthly Sales for Retail and Food Services
+  CLAIMS:
+    tier: 2
+    times_et: ["08:30"]
+    fred_release_search: Unemployment Insurance Weekly Claims Report
+
+databento:
+  dataset: GLBX.MDP3
+  stype_in: continuous
+  budget_usd: 40.0
+  spend_ledger: data/raw/spend_ledger.json
+  windows:                         # seconds relative to t0
+    ohlcv_1s: [-7200, 14400]
+    mbp_1: [-1800, 3600]
+    mbp_10: [-300, 900]
+
+fred:
+  base_url: https://api.stlouisfed.org/fred
+  api_key_env: FRED_API_KEY
+  first_release_series:
+    core_cpi_index: CPILFESL
+    payrolls_level: PAYEMS
+
+panel:
+  fine_grid: {step_ms: 100, start_s: -60, end_s: 120}
+  coarse_grid: {step_ms: 1000, start_s: -1800, end_s: 3600}
+  baseline_window_s: [-1800, -600]
+  depth_levels: [1, 3, 5, 10]
+
+control_days:
+  per_time:
+    "08:30": 30
+    "14:00": 15
+  match_weekday: true
+
+analysis:
+  reaction_horizons_s: [1, 10, 60, 300, 1800, 7200]
+  first_move_quantile: 0.99        # K = this quantile of 100 ms moves on control days
+  lead_lag_window_s: 60
+  recovery_levels: [0.5, 0.9]
+  bootstrap_reps: 2000
+  fdr_alpha: 0.05
+  fomc_surprise_window_s: [-600, 1200]
+  execution:
+    order_sizes: [1, 5, 10, 25]
+    fee_per_contract_side_usd: 2.50
+    normal_cost_multiple: 1.25
+  strategy:
+    delays_s: [1, 5, 30, 60]
+    exits_s: [300, 1800, 7200]
+    min_train_events: 8
+
+monitoring:
+  metrics_port: 8000
+  alert_spread_ticks: 3
+  alert_depth_pct_of_baseline: 25
+  alert_no_data_s: 5
+
+# Synthetic event generator, used by tests and CI only. Tick sizes and
+# reaction coefficients here are illustrative settings for the generator,
+# not market facts.
+synthetic:
+  seed: 20260924
+  window_s: [-1800, 3600]
+  levels: 10
+  event:
+    withdrawal_lead_s: 20          # depth starts falling this long before t0
+    depth_drop: 0.8                # fraction of depth removed at t0
+    depth_recovery_half_life_s: 30
+    spread_blowout_ticks: 6        # extra ticks of spread right after the reaction
+    spread_half_life_s: 4
+    activity_multiplier: 8.0       # update and trade rate at the reaction, x baseline
+    activity_half_life_s: 15
+  instruments:
+    ZN: {tick_size: 0.015625, start_price: 112.0, base_depth: 900, update_rate: 40.0, trade_share: 0.15, vol_ticks_per_s: 0.05, jump_ticks_per_sd: -4.0, lag_ms: 0}
+    ZT: {tick_size: 0.00390625, start_price: 104.0, base_depth: 2500, update_rate: 30.0, trade_share: 0.12, vol_ticks_per_s: 0.04, jump_ticks_per_sd: -6.0, lag_ms: 5}
+    ES: {tick_size: 0.25, start_price: 6500.0, base_depth: 40, update_rate: 80.0, trade_share: 0.2, vol_ticks_per_s: 0.3, jump_ticks_per_sd: -8.0, lag_ms: 12}
+    GC: {tick_size: 0.1, start_price: 3400.0, base_depth: 15, update_rate: 25.0, trade_share: 0.15, vol_ticks_per_s: 0.4, jump_ticks_per_sd: -10.0, lag_ms: 40}

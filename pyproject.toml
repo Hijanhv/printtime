@@ -1,0 +1,83 @@
+[project]
+name = "printtime"
+version = "0.1.0"
+description = "Print Time: how CME futures order books thin out, reprice and recover around U.S. macro releases."
+readme = "README.md"
+requires-python = ">=3.11"
+license = { text = "MIT" }
+authors = [{ name = "Janhavi Chavada" }]
+dependencies = [
+    "databento",
+    "fredapi",
+    "httpx",
+    "python-dotenv",
+    "polars",
+    "numpy",
+    "numba",
+    "pyarrow",
+    "duckdb",
+    "pandas",
+    "statsmodels",
+    "scipy",
+    "ruptures",
+    "scikit-learn",
+    "matplotlib",
+    "typer",
+    "pydantic>=2",
+    "pyyaml",
+    "structlog",
+    "prometheus-client",
+]
+
+[project.scripts]
+printtime = "printtime.cli:app"
+
+[dependency-groups]
+dev = [
+    "pytest",
+    "pytest-cov",
+    "hypothesis",
+    "ruff",
+    "mypy",
+    "pre-commit",
+    "types-PyYAML",
+]
+explore = ["jupyterlab"]
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/printtime"]
+
+[tool.uv]
+default-groups = ["dev"]
+
+[tool.ruff]
+line-length = 100
+target-version = "py311"
+src = ["src", "tests"]
+
+[tool.ruff.lint]
+select = ["E", "F", "W", "I", "B", "UP", "N", "SIM", "RUF"]
+ignore = ["N803", "N806", "RUF001", "RUF002", "RUF003"]
+
+[tool.ruff.lint.per-file-ignores]
+"tests/*" = ["N802"]
+
+[tool.mypy]
+python_version = "3.12"
+files = ["src/printtime"]
+ignore_missing_imports = true
+disallow_untyped_defs = true
+warn_unused_ignores = true
+no_implicit_optional = true
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+addopts = "-q"
+
+[tool.coverage.run]
+source = ["src/printtime"]
+omit = ["src/printtime/cli.py"]
