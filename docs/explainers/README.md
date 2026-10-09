@@ -1,6 +1,6 @@
 # Explainers
 
-Plain-English notes on every module, written to be explained out loud in an interview: what it does, why it is built this way, the assumptions it makes, what could go wrong, and the alternatives considered. New explainers are added as each phase is built.
+Plain-English notes on every module, written to be explained out loud in an interview: what it does, why it is built this way, the assumptions it makes, what could go wrong, and the alternatives considered. 
 
 | # | Module | Status |
 |---|---|---|
@@ -15,3 +15,4 @@ Plain-English notes on every module, written to be explained out loud in an inte
 | 08 | [Reaction function](08-reaction-function.md) | Phase 6 |
 | 09 | [Execution cost and the surprise strategy](09-practical-guidance.md) | Phase 7 |
 | 10 | [Release replay dashboard](10-replay-dashboard.md) | Phase 8 |
+| 11 | [The report](11-report.md) | Phase 9 |
