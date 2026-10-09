@@ -7,3 +7,4 @@ Plain-English notes on every module, written to be explained out loud in an inte
 | 00 | [The idea in one page](00-the-idea.md) | Phase 0 |
 | 01 | [Synthetic event generator](01-synthetic-generator.md) | Phase 0 |
 | 02 | [Engineering: config, keys, time zones, CLI, tests, CI](02-engineering.md) | Phase 0 |
+| 03 | [Calendar and surprises](03-calendar-and-surprises.md) | Phase 1 |
