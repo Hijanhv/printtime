@@ -128,6 +128,39 @@ class Panel(_Strict):
 class ControlDays(_Strict):
     per_time: dict[str, int]
     match_weekday: bool
+    seed: int
+    exclude_file: Path
+
+
+class Trim(_Strict):
+    core_instruments: list[str]
+    short_mbp_1_window: tuple[int, int]
+    fewer_controls: dict[str, int]
+
+
+class Plan(_Strict):
+    sample_event_type: str
+    sample_events: int = Field(ge=1)
+    reference_instrument: str
+    trim: Trim
+
+
+class Quality(_Strict):
+    max_gap_inside_window_s: float = Field(gt=0)
+    crossed_book_tolerance: int = Field(ge=0)
+
+
+class Validation(_Strict):
+    spike_window_s: tuple[int, int]
+    quiet_window_s: tuple[int, int]
+    min_spike_ratio: float = Field(gt=1)
+    reference_instruments: list[str]
+
+    _check = field_validator("spike_window_s", "quiet_window_s")(_window)
+
+
+class Roll(_Strict):
+    days_before_expiration: dict[str, int]
 
 
 class Execution(_Strict):
@@ -206,6 +239,10 @@ class Settings(_Strict):
     surprise_variables: dict[str, SurpriseVariable]
     panel: Panel
     control_days: ControlDays
+    plan: Plan
+    quality: Quality
+    validation: Validation
+    roll: Roll
     analysis: Analysis
     monitoring: Monitoring
     synthetic: Synthetic

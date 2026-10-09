@@ -97,6 +97,50 @@ control_days:
     "08:30": 30
     "14:00": 15
   match_weekday: true
+  seed: 20241001
+  # Optional extra dates to avoid (for example FOMC minutes at 14:00, which are
+  # not Tier 1 or 2 but still move markets). One column: date.
+  exclude_file: data/calendar/control_exclusions.csv
+
+plan:
+  sample_event_type: CPI
+  sample_events: 3                 # price this many sample events for ZN (spec 3.2)
+  reference_instrument: ZN
+  trim:                            # alternatives shown next to the full plan
+    core_instruments: [ZT, ZN, ES, GC, CL, 6E]
+    short_mbp_1_window: [-600, 1800]
+    fewer_controls:
+      "08:30": 15
+      "14:00": 8
+
+quality:
+  max_gap_inside_window_s: 5       # a longer silence inside an event window is reported
+  crossed_book_tolerance: 0        # crossed-book rows allowed before the window is rejected
+
+validation:
+  # A release is confirmed when price moves in the first minute are this many
+  # times larger than in the quiet stretch before it.
+  spike_window_s: [0, 60]
+  quiet_window_s: [-600, -60]
+  min_spike_ratio: 3.0
+  reference_instruments: [ZN, ES]
+
+roll:
+  # A window is flagged as a roll-week event when the release falls this many
+  # calendar days or fewer before the front contract's expiration. Front-by-volume
+  # contracts roll well before expiry (Treasuries before first notice day), so
+  # these are generous, documented heuristics, not exchange rules.
+  days_before_expiration:
+    ZT: 35
+    ZF: 35
+    ZN: 35
+    ZB: 35
+    ES: 12
+    GC: 35
+    CL: 10
+    6E: 12
+    6J: 12
+    SR3: 12
 
 analysis:
   reaction_horizons_s: [1, 10, 60, 300, 1800, 7200]
