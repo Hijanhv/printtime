@@ -32,8 +32,17 @@ def write_stage(cfg: Settings, grid: str, window_id: str, stage: str, df: pl.Dat
     return path
 
 
+class IncompletePanelsError(RuntimeError):
+    """Raised when panels exist but the build that wrote them did not finish."""
+
+
 def scan(cfg: Settings, grid: str) -> pl.LazyFrame:
     d = panel_dir(cfg, grid)
+    if not (cfg.paths.processed / "panels" / "run_panel_build.json").exists():
+        raise IncompletePanelsError(
+            f"no completed panel build in {cfg.paths.processed / 'panels'}: the last "
+            "`printtime panel build` did not finish (or never ran). Re-run it before any analysis."
+        )
     if not any(d.glob("*.parquet")):
         raise FileNotFoundError(f"no {grid} panels in {d}; run `printtime panel build`")
     return pl.scan_parquet(str(d / "*.parquet"))

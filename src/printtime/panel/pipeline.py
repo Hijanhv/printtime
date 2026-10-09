@@ -88,6 +88,9 @@ class PanelBuildResult:
 def run_panel_build(
     cfg: Settings, stages: list[Stage], provider: FrameProvider, instruments: list[str]
 ) -> PanelBuildResult:
+    # The manifest marks a COMPLETE build. Remove it first: if this run dies
+    # half way, analyses must refuse the partial panels instead of using them.
+    (cfg.paths.processed / "panels" / "run_panel_build.json").unlink(missing_ok=True)
     for grid in ("fine", "coarse", "moves"):
         for old in panel_dir(cfg, grid).glob("*.parquet"):
             old.unlink()

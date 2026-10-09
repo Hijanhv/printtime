@@ -225,3 +225,13 @@ def test_panel_build_pipeline_on_a_small_synthetic_study(tmp_path) -> None:  # t
     manifest = json.loads((cfg.paths.processed / "panels" / "run_panel_build.json").read_text())
     assert manifest["git_commit"] and manifest["config"]["sample"]["start"] == "2024-10-01"
     assert str(tmp_path) in str(cfg.paths.figures)  # synthetic output never lands in reports/
+
+
+def test_analyses_refuse_panels_from_an_unfinished_build(tmp_path) -> None:  # type: ignore[no-untyped-def]
+    from printtime.panel.store import IncompletePanelsError, scan, write_stage
+    from tests.conftest import test_config
+
+    cfg = test_config(tmp_path)
+    write_stage(cfg, "fine", "CPI_2025-03-12", "release", pl.DataFrame({"offset_ms": [0]}))
+    with pytest.raises(IncompletePanelsError):
+        scan(cfg, "fine")  # files exist, but no manifest: the build died part way
