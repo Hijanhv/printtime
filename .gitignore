@@ -16,3 +16,6 @@ htmlcov/
 data/raw/
 data/processed/
 data/synthetic/
+# demo and synthetic-run outputs (reproducible via `printtime demo`)
+data/demo/
+data/synthetic_run/

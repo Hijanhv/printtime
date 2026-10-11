@@ -56,7 +56,12 @@ The spec is in [PROJECT_2_SPEC.md](PROJECT_2_SPEC.md); a plain-English explainer
 uv sync
 uv run pytest                                        # every test runs offline on synthetic data
 
-# the whole pipeline on a synthetic study (writes only under data/synthetic_run/)
+# quick showcase: whole pipeline on a tiny synthetic study (~1 min, data/demo/)
+uv run printtime demo
+# figures in data/demo/reports/figures/, report in data/demo/reports/REPORT.md
+# (synthetic with known planted effects: a demo, not market results)
+
+# the full-size synthetic study (slower; writes only under data/synthetic_run/)
 uv run printtime panel build --synthetic 10
 uv run printtime --synthetic-run analyze liquidity   # also: reaction, regression, execution, strategy
 uv run printtime --synthetic-run report

@@ -264,6 +264,8 @@ def headlines(summary: pl.DataFrame) -> list[str]:
             continue
         pos = s.filter(pl.col("ci_lo") > 0)
         best = s.sort("mean_net_ticks", descending=True).row(0, named=True)
+        n_trades = int(best["trades"])
+        trade_word = "trade" if n_trades == 1 else "trades"
         verdict = (
             f"makes money after costs in {pos.height} of {s.height} settings with a 95% interval above zero"
             if pos.height
@@ -271,7 +273,7 @@ def headlines(summary: pl.DataFrame) -> list[str]:
         )
         heads.append(
             f"{et}: the surprise-direction rule {verdict}. Best setting {best['instrument']} enter +{best['delay_s']} s, "
-            f"exit +{best['exit_s'] // 60} min: {best['mean_net_ticks']:+.2f} ticks per trade over {best['trades']} trades "
+            f"exit +{best['exit_s'] // 60} min: {best['mean_net_ticks']:+.2f} ticks per trade over {n_trades} {trade_word} "
             f"(95% CI {best['ci_lo']:+.2f} to {best['ci_hi']:+.2f}); perfect-sign upper bound "
             f"{best['upper_bound_mean_net_ticks']:+.2f}, random direction {best['random_mean_net_ticks']:+.2f}. "
             "With this few events the result is noisy."

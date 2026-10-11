@@ -55,3 +55,13 @@ def test_logging_still_works_after_a_cli_run(tmp_path: Path) -> None:
     get_logger("after_cli").info(
         "still_logging"
     )  # raised "I/O operation on closed file" before the fix
+
+
+def test_demo_rejects_too_few_events() -> None:
+    r = CliRunner().invoke(app, [*BASE, "demo", "--events", "2"])
+    assert r.exit_code == 2, r.output
+
+
+def test_demo_command_exists() -> None:
+    r = CliRunner().invoke(app, [*BASE, "demo", "--help"])
+    assert r.exit_code == 0, r.output

@@ -6,6 +6,7 @@
     printtime analyze liquidity | reaction | regression | execution | strategy
     printtime report
     printtime replay
+    printtime demo             fast end-to-end showcase on a tiny synthetic study
     printtime synth            synthetic release windows (tests, demos, CI)
 
 Commands that belong to a later phase exit with a clear message instead of
@@ -521,6 +522,81 @@ def replay(
         )
         if not loop:
             break
+
+
+# Demo ------------------------------------------------------------------------
+@app.command()
+def demo(
+    events: Annotated[
+        int, typer.Option(help="Synthetic events per type (kept tiny so the demo is fast)")
+    ] = 4,
+    controls: Annotated[int, typer.Option(help="Control days per clock time")] = 4,
+    reps: Annotated[
+        int, typer.Option(help="Bootstrap repetitions (the config default is 2000)")
+    ] = 100,
+) -> None:
+    """Showcase the whole pipeline on a tiny synthetic study.
+
+    Builds panels, runs all five analyses and writes a report under data/demo/.
+    The strategy's training window is shortened to fit the tiny study.
+    Everything is synthetic with known planted effects: the report carries a
+    SYNTHETIC banner, and real outputs and the README are never touched.
+    """
+    from printtime.analysis import execution, liquidity, reaction, regression, strategy
+    from printtime.panel.pipeline import (
+        run_panel_build,
+        save_study,
+        stages_for_study,
+        synthetic_settings,
+    )
+    from printtime.panel.providers import SyntheticProvider
+    from printtime.report import build_report
+    from printtime.synthetic.generator import synthetic_study
+
+    if events < 3:
+        typer.echo("demo needs at least 3 events per type for the strategy backtest.", err=True)
+        raise typer.Exit(code=2)
+    base = cfg()
+    # Tiny study, fewer bootstrap draws, and a training window that fits a
+    # handful of events (the default of 8 needs a real-size study).
+    d = synthetic_settings(base, Path("data/demo")).model_copy(
+        update={
+            "analysis": base.analysis.model_copy(
+                update={
+                    "bootstrap_reps": reps,
+                    "strategy": base.analysis.strategy.model_copy(update={"min_train_events": 2}),
+                }
+            )
+        }
+    )
+    study = synthetic_study(d, events, controls)
+    stages = stages_for_study(d, study)
+    save_study(d, study)
+    provider = SyntheticProvider(d, study.scenarios)
+    # Three instruments cover every headline (ZN depth and execution cost, ES
+    # first-mover, ZT for the market-implied FOMC surprise); GC adds nothing
+    # the demo needs and costs a quarter of the runtime.
+    instruments: list[str] = [i for i in ("ZT", "ZN", "ES") if i in d.synthetic.instruments]
+    typer.echo(
+        f"DEMO study: {len(stages)} stages, {len(instruments)} instruments, "
+        "outputs under data/demo/ (synthetic, not market results)"
+    )
+    result = run_panel_build(d, stages, provider, instruments)
+    typer.echo(f"built panels for {result.stages_built} of {len(stages)} stages")
+    for name, mod in (
+        ("liquidity", liquidity),
+        ("reaction", reaction),
+        ("regression", regression),
+        ("execution", execution),
+        ("strategy", strategy),
+    ):
+        res = mod.run(d)
+        typer.echo(f"--- {name} ---")
+        for line in res.headline[:3]:
+            typer.echo(line)
+    path = build_report(d)
+    typer.echo(f"wrote {path} (DEMO: synthetic, not market results)")
+    typer.echo("figures in data/demo/reports/figures/")
 
 
 if __name__ == "__main__":
