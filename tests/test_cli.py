@@ -62,6 +62,13 @@ def test_demo_rejects_too_few_events() -> None:
     assert r.exit_code == 2, r.output
 
 
+def test_demo_rejects_bad_controls_and_reps() -> None:
+    r = CliRunner().invoke(app, [*BASE, "demo", "--controls", "0"])
+    assert r.exit_code == 2, r.output
+    r = CliRunner().invoke(app, [*BASE, "demo", "--reps", "0"])
+    assert r.exit_code == 2, r.output
+
+
 def test_demo_command_exists() -> None:
     r = CliRunner().invoke(app, [*BASE, "demo", "--help"])
     assert r.exit_code == 0, r.output

@@ -10,7 +10,7 @@ COPY src ./src
 RUN uv sync --locked --no-dev --no-editable
 
 FROM python:3.12-slim
-# libgomp: OpenMP runtime needed by LightGBM
+# libgomp: OpenMP runtime needed by NumPy/SciPy
 RUN apt-get update \
     && apt-get install -y --no-install-recommends libgomp1 \
     && rm -rf /var/lib/apt/lists/* \

@@ -556,6 +556,12 @@ def demo(
     if events < 3:
         typer.echo("demo needs at least 3 events per type for the strategy backtest.", err=True)
         raise typer.Exit(code=2)
+    if controls < 1:
+        typer.echo("demo needs at least 1 control day per clock time.", err=True)
+        raise typer.Exit(code=2)
+    if reps < 1:
+        typer.echo("demo needs at least 1 bootstrap repetition.", err=True)
+        raise typer.Exit(code=2)
     base = cfg()
     # Tiny study, fewer bootstrap draws, and a training window that fits a
     # handful of events (the default of 8 needs a real-size study).
